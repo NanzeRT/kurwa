@@ -1,0 +1,37 @@
+# true ; t ; f t
+# false ; t ; f f
+#3 if ; b ; t ; f . . b t f
+#2 and ; a ; b . . a b false
+#2 or ; a ; b . . a true b
+#1 not ; a . . a false true
+#2 xor ; a ; b . . a . . b false true b
+#2 comp ; f ; g ; v . g . f v
+
+#1 recur ; f . f f
+
+#2 pair ; x ; y ; a . . a x y
+#1 first ; p . p ; x ; y x
+#1 second ; p . p ; x ; y y
+
+#1 some ; v ; s ; n . s v
+# none ; s ; n n
+#1 is_some ; o . . o ; _ true false
+#2 is_none ; o . . o ; _ false true
+#1 unwrap ; o . . o ; v v PANIC
+
+#3 foldl recur ; foldl ; f ; z ; l if is_some l . . f first unwrap l . . . . foldl foldl f z second unwrap l z
+
+#3 print ; n ; v ; c . . . . n ( v ) c
+
+print 1 if true 1 2
+print 2 if false 1 2
+print 3 and 1 2
+print 4 or 1 2
+print 5 xor 1 2
+# val xor or and false true true not false
+print 6 val
+print 7 if not val abacaba asdfasfd
+print 8 foldl ; a ; b xor a b false some pair true some pair not false none
+print 9 foldl ; a ; b . a b 0 some pair 1 some pair 2 some pair 3 some pair 4 none
+
+end

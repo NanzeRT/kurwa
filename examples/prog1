@@ -1,0 +1,4 @@
+; 1 ; 2
+#2 pair ; x ; y ; a . . a x y
+#1 first ; p . p ; x ; y x
+first pair 1 2
