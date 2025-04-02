@@ -73,6 +73,7 @@ fn main() {
     let bytes = file.bytes();
     let mut token_stack: Vec<TokenUnit> = vec![];
     let mut operators: HashMap<String, Vec<u32>> = HashMap::new();
+    let mut comment_level = 0u32;
     for token in bytes
         .map(Result::unwrap)
         .group_by(|&c| !c.is_ascii_whitespace())
@@ -80,6 +81,17 @@ fn main() {
         .filter_map(|v| if v.0 { Some(v.1) } else { None })
         .map(|s| String::from_utf8(s.collect()).unwrap())
     {
+        if token == "]]" {
+            assert!(comment_level > 0);
+            comment_level -= 1;
+            continue;
+        }
+        if token == "[[" {
+            comment_level += 1;
+        }
+        if comment_level > 0 {
+            continue;
+        }
         match token.as_str() {
             ";" => token_stack.push(TokenUnit {
                 left: 2,
@@ -147,7 +159,9 @@ fn main() {
                                             .unwrap()
                                     {
                                         token_stack.push(TokenUnit {
-                                            left: token_stack.last().map_or(999999, |v| v.left - 1),
+                                            left: token_stack
+                                                .last()
+                                                .map_or(1000001, |v| v.left - 1),
                                             token: Token::Program(Program::Lambda {
                                                 arg,
                                                 body: Box::new(body),
@@ -164,7 +178,9 @@ fn main() {
                                             .unwrap()
                                     {
                                         token_stack.push(TokenUnit {
-                                            left: token_stack.last().map_or(999999, |v| v.left - 1),
+                                            left: token_stack
+                                                .last()
+                                                .map_or(1000002, |v| v.left - 1),
                                             token: Token::Program(Program::Application {
                                                 fun: Box::new(fun),
                                                 arg: Box::new(arg),
@@ -186,7 +202,9 @@ fn main() {
                                             operators.remove(&name);
                                         }
                                         token_stack.push(TokenUnit {
-                                            left: token_stack.last().map_or(999999, |v| v.left - 1),
+                                            left: token_stack
+                                                .last()
+                                                .map_or(1000003, |v| v.left - 1),
                                             token: Token::Program(Program::Application {
                                                 fun: Box::new(Program::Lambda {
                                                     arg: name,
@@ -211,10 +229,25 @@ fn main() {
     // if let Token::Program(program) = &token_stack[0].token {
     //     println!("{}", program);
     // }
+    if comment_level > 0 {
+        println!("WARNING: unclosed comment");
+    }
+    if token_stack.len() != 1 {
+        println!("Unbalanced token stack:");
+
+        for token in token_stack {
+            match token.token {
+                Token::Program(p) => println!("\n{} {p}", token.left),
+                t => println!("\n{} {t:?}", token.left),
+            }
+        }
+
+        panic!()
+    }
+
     let Token::Program(mut program) = token_stack.pop().unwrap().token else {
         panic!()
     };
-    assert!(token_stack.is_empty());
 
     fn b_reduce(program: &mut Program) -> bool {
         match program {
@@ -278,9 +311,9 @@ fn main() {
         }
     }
 
-    println!("{}", program);
-    while b_reduce(&mut program) || n_reduce(&mut program) {
-        println!("{}", program);
-    }
     // println!("{}", program);
+    while b_reduce(&mut program) || n_reduce(&mut program) {
+        // println!("{}", program);
+    }
+    println!("{}", program);
 }
