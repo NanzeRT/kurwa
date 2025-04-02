@@ -1,5 +1,7 @@
+[[ bool ]]
 # true ; t ; f t
 # false ; t ; f f
+
 #3 if ; b ; t ; f . . b t f
 #2 and ; a ; b . . a b false
 #2 or ; a ; b . . a true b
@@ -7,31 +9,121 @@
 #2 xor ; a ; b . . a . . b false true b
 #2 comp ; f ; g ; v . g . f v
 
-#1 recur ; f . f f
+# and_op ; a ; b . . a b false
+# or_op ; a ; b . . a true b
+# not_op ; a . . a false true
+# xor_op ; a ; b . . a . . b false true b
 
-#2 pair ; x ; y ; a . . a x y
-#1 first ; p . p ; x ; y x
-#1 second ; p . p ; x ; y y
+[[ https://en.wikipedia.org/wiki/Fixed-point_combinator ]]
+#1 recur ; f . ; x . f . x x ; x . f . x x
 
+[[ (a b) ]]
+#2 pair ; a ; b ; f . . f a b
+#1 first ; p . p ; a ; b a
+#1 second ; p . p ; a ; b b
+[[ converts `a -> b -> c` to `(a b) -> c` ]]
+#1 uncurry ; f ; p . p f
+[[ converts `(a b) -> c` to `a -> b -> c` ]]
+#1 curry ; f ; a ; b . f pair a b
+
+[[ option v ]]
 #1 some ; v ; s ; n . s v
 # none ; s ; n n
 #1 is_some ; o . . o ; _ true false
 #2 is_none ; o . . o ; _ false true
 #1 unwrap ; o . . o ; v v PANIC
+#3 match_option ; o ; s ; n . . o s n
+#3 match_list ; l ; ht ; e match_option l ; l . l ht e
+#2 map_option ; o ; s . . o s none
+#2 map_list_head ; l ; ht map_option l ; l . l ht
 
-#3 foldl recur ; foldl ; f ; z ; l if is_some l . . f first unwrap l . . . . foldl foldl f z second unwrap l z
+[[ li 1 li 2 li 3 none = [1 2 3] ]]
+#2 li ; a ; b some pair a b
 
+#3 foldl recur ; foldl ; f ; z ; l
+    match_list l
+        ; h ; t . . f h . . . foldl f z t
+        z
+
+#2 map_list recur ; map_list ; f ; l
+    map_list_head l
+        ; h ; t li . f h . . map_list f t
+
+#2 zip recur ; zip ; a ; b
+    map_list_head a
+        ; ah ; at map_list_head b
+            ; bh ; bt li pair ah bh . . zip at bt
+
+#3 zip_fill recur ; zip_fill ; a ; b ; fill
+    match_list a
+        ; ah ; at match_list b
+            ; bh ; bt
+                li pair ah bh . . . zip_fill at bt fill
+            li pair ah fill . . . zip_fill at none fill
+        map_list_head b
+            ; bh ; bt li pair fill bh . . . zip_fill none bt fill
+
+[[ interpreter doesn't touch undefined symbols  ]]
+[[ so this thing outputs in readable-ish format ]]
+[[ third argument is the rest of the program    ]]
 #3 print ; n ; v ; c . . . . n ( v ) c
-
+[[
 print 1 if true 1 2
 print 2 if false 1 2
 print 3 and 1 2
-print 4 or 1 2
+print 4 or 1 2 [[ nested comments btw ]]
 print 5 xor 1 2
 # val xor or and false true true not false
 print 6 val
 print 7 if not val abacaba asdfasfd
-print 8 foldl ; a ; b xor a b false some pair true some pair not false none
-print 9 foldl ; a ; b . a b 0 some pair 1 some pair 2 some pair 3 some pair 4 none
+print 8 foldl ; a ; b xor a b false li true li not false none
+print 9 foldl ; a ; b . a b 0 li 1 li 2 li 3 li 4 none
+]]
+
+[[ numbers are lists of bool   ]]
+[[ 10 = 0b1010 = [0 1 0 1]     ]]
+[[ bits are written in reverse ]]
+# ten li false li true li false li true none
+# one li true none
+[[ zero may be empty list             ]]
+[[ following falses do not affect num ]]
+[[ [] ~ [0 0 0 0]                     ]]
+# zero none
+#2 xor_nums ; a ; b map_list uncurry xor_op zip_fill a b false
+# eleven xor_nums one ten
+
+print 10 eleven
+
+#2 eq_nums ; a ; b not foldl or_op false xor_nums a b
+
+print 11 eq_nums eleven li true li true li false li true none
+
+[[ trits ]]
+# up      ; u ; n ; d u
+# neutral ; u ; n ; d n
+# down    ; u ; n ; d d
+#1 inc_sat_trit ; t . . . t up up neutral
+#2 add_sat_trit_bool ; t ; b . . b inc_sat_trit t t
+#1 is_up ; t . . . t true false false
+#1 bool_into_trit ; b ; u b
+
+[[ zip_fill num num -> carry: bool -> num ]]
+#2 add_full recur ; add_full ; ab ; c match_list ab
+    ; abh ; abt li 
+        xor c . uncurry xor_op abh
+        . . add_full abt is_up . uncurry ; a ; b add_sat_trit_bool add_sat_trit_bool bool_into_trit c a b abh
+    if c li true none none
+#2 add ; a ; b add_full zip_fill a b false false
+
+print 12 eq_nums add ten zero ten
+print 13 eq_nums add ten one eleven
+# two add one one
+# three add one two
+print 14 eq_nums three li true li true none
+print 15 eq_nums add three three li false li true li true none
+# six add three three
+# n12 add six six
+# n15 add n12 three
+print 16 n15
 
 end
