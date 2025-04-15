@@ -25,6 +25,7 @@
 #1 uncurry ; f ; p . p f
 [[ converts `(a b) -> c` to `a -> b -> c` ]]
 #1 curry ; f ; a ; b . f pair a b
+#2 depair ; p ; f . p f
 
 [[ option v ]]
 #1 some ; v ; s ; n . s v
@@ -33,41 +34,64 @@
 #2 is_none ; o . . o ; _ false true
 #1 unwrap ; o . . o ; v v PANIC
 #3 match_option ; o ; s ; n . . o s n
-#3 match_list ; l ; ht ; e match_option l ; l . l ht e
 #2 map_option ; o ; s . . o s none
-#2 map_list_head ; l ; ht map_option l ; l . l ht
 
 [[ li 1 li 2 li 3 none = [1 2 3] ]]
 #2 li ; a ; b some pair a b
 
-#3 foldl recur ; foldl ; f ; z ; l
-    match_list l
-        ; h ; t . . f h . . . foldl f z t
-        z
+#3 match_list ; l ; ht ; e match_option l ; l . l ht e
+#2 map_list_head ; l ; ht map_option l ; l . l ht
+#1 unwrap_head ; l first unwrap l
+#1 unwrap_tail ; l second unwrap l
 
+[[ (A -> B -> B) -> B -> list A -> B ]]
+#3 foldr recur ; foldr ; f ; z ; l
+match_list l
+    ; h ; t . . f h . . . foldr f z t
+    z
+
+[[ (A -> B) -> list A -> list B ]]
 #2 map_list recur ; map_list ; f ; l
-    map_list_head l
-        ; h ; t li . f h . . map_list f t
+map_list_head l
+    ; h ; t li . f h . . map_list f t
 
+[[ (A -> option B) -> list A -> list B ]]
+#2 map_filter_list recur ; map_filter_list ; f ; l
+map_list_head l
+    ; h ; t match_option . f h
+        ; v li v . . map_filter_list f t
+        . . map_filter_list f t
+
+[[ list A -> list B -> list (A B) ]]
 #2 zip recur ; zip ; a ; b
-    map_list_head a
-        ; ah ; at map_list_head b
-            ; bh ; bt li pair ah bh . . zip at bt
+map_list_head a
+    ; ah ; at map_list_head b
+        ; bh ; bt li pair ah bh . . zip at bt
 
+[[ list A -> list B -> AB -> list (A B) ]]
 #3 zip_fill recur ; zip_fill ; a ; b ; fill
-    match_list a
-        ; ah ; at match_list b
-            ; bh ; bt
-                li pair ah bh . . . zip_fill at bt fill
-            li pair ah fill . . . zip_fill at none fill
-        map_list_head b
-            ; bh ; bt li pair fill bh . . . zip_fill none bt fill
+match_list a
+    ; ah ; at match_list b
+        ; bh ; bt
+            li pair ah bh . . . zip_fill at bt fill
+        li pair ah fill . . . zip_fill at none fill
+    map_list_head b
+        ; bh ; bt li pair fill bh . . . zip_fill none bt fill
+
+[[ list (A B) -> (list A list B) ]]
+#1 unzip ; l
+foldr ; ab ; asbs
+        depair ab ; a ; b
+        depair asbs ; as ; bs
+        pair li a as li b bs
+      pair none none
+      l
 
 [[ interpreter doesn't touch undefined symbols  ]]
 [[ so this thing outputs in readable-ish format ]]
 [[ third argument is the rest of the program    ]]
 #3 print ; n ; v ; c . . . . n ( v ) c
-[[
+
 print 1 if true 1 2
 print 2 if false 1 2
 print 3 and 1 2
@@ -78,7 +102,7 @@ print 6 val
 print 7 if not val abacaba asdfasfd
 print 8 foldl ; a ; b xor a b false li true li not false none
 print 9 foldl ; a ; b . a b 0 li 1 li 2 li 3 li 4 none
-]]
+
 
 [[ numbers are lists of bool   ]]
 [[ 10 = 0b1010 = [0 1 0 1]     ]]
