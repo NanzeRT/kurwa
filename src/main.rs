@@ -169,6 +169,7 @@ fn main() {
                                         });
                                         break;
                                     } else {
+                                        dump_stack(token_stack);
                                         panic!()
                                     }
                                 }
@@ -232,15 +233,18 @@ fn main() {
     if comment_level > 0 {
         println!("WARNING: unclosed comment");
     }
-    if token_stack.len() != 1 {
-        println!("Unbalanced token stack:");
-
+    fn dump_stack(token_stack: Vec<TokenUnit>) {
         for token in token_stack {
             match token.token {
                 Token::Program(p) => println!("\n{} {p}", token.left),
                 t => println!("\n{} {t:?}", token.left),
             }
         }
+    }
+    if token_stack.len() != 1 {
+        println!("Unbalanced token stack:");
+
+        dump_stack(token_stack);
 
         panic!()
     }
@@ -254,7 +258,8 @@ fn main() {
             Program::Lambda { body, .. } => b_reduce(body),
             Program::Application { fun, arg } => {
                 if let Program::Lambda { arg: name, body } = &mut **fun {
-                    apply(body, name, arg);
+                    let arg = std::mem::take(arg);
+                    apply(body, name, ArgVal::Owned(arg));
                     let body = std::mem::take(body);
                     *program = *body;
                     return true;
@@ -284,20 +289,39 @@ fn main() {
         }
     }
 
-    fn apply(program: &mut Program, name: &str, arg_val: &Program) {
+    enum ArgVal<'a> {
+        Owned(Box<Program>),
+        Borrowed(&'a Program),
+    }
+
+    impl ArgVal<'_> {
+        fn into_owned(self) -> Program {
+            match self {
+                ArgVal::Owned(program) => *program,
+                ArgVal::Borrowed(program) => program.clone(),
+            }
+        }
+    }
+
+    fn apply<'a>(program: &'a mut Program, name: &str, arg_val: ArgVal<'a>) -> ArgVal<'a> {
         match program {
             Program::Lambda { arg, body } => {
                 if name != arg {
-                    apply(body, name, arg_val);
+                    apply(body, name, arg_val)
+                } else {
+                    arg_val
                 }
             }
             Program::Application { fun, arg } => {
-                apply(fun, name, arg_val);
-                apply(arg, name, arg_val);
+                let arg_val = apply(fun, name, arg_val);
+                apply(arg, name, arg_val)
             }
             Program::Variable { name: name1 } => {
                 if name1 == name {
-                    *program = arg_val.clone();
+                    *program = arg_val.into_owned();
+                    ArgVal::Borrowed(program)
+                } else {
+                    arg_val
                 }
             }
         }
