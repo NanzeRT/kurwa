@@ -100,8 +100,8 @@ print 5 xor 1 2
 # val xor or and false true true not false
 print 6 val
 print 7 if not val abacaba asdfasfd
-print 8 foldl ; a ; b xor a b false li true li not false none
-print 9 foldl ; a ; b . a b 0 li 1 li 2 li 3 li 4 none
+print 8 foldr ; a ; b xor a b false li true li not false none
+print 9 foldr ; a ; b . a b 0 li 1 li 2 li 3 li 4 none
 
 
 [[ numbers are lists of bool   ]]
@@ -118,7 +118,7 @@ print 9 foldl ; a ; b . a b 0 li 1 li 2 li 3 li 4 none
 
 print 10 eleven
 
-#2 eq_nums ; a ; b not foldl or_op false xor_nums a b
+#2 eq_nums ; a ; b not foldr or_op false xor_nums a b
 
 print 11 eq_nums eleven li true li true li false li true none
 
