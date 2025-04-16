@@ -254,17 +254,26 @@ fn main() {
     };
 
     fn b_reduce(program: &mut Program) -> bool {
+        b_reduce_(program, &mut HashMap::new())
+    }
+
+    fn b_reduce_(program: &mut Program, arg_set: &mut HashMap<String, u32>) -> bool {
         match program {
-            Program::Lambda { body, .. } => b_reduce(body),
+            Program::Lambda { body, arg } => {
+                *arg_set.entry(arg.clone()).or_default() += 1;
+                let res = b_reduce_(body, arg_set);
+                *arg_set.get_mut(arg).expect("just inserted") -= 1;
+                res
+            }
             Program::Application { fun, arg } => {
                 if let Program::Lambda { arg: name, body } = &mut **fun {
                     let arg = std::mem::take(arg);
-                    apply(body, name, ArgVal::Owned(arg));
+                    apply(body, name, ArgVal::Owned(arg), &*arg_set);
                     let body = std::mem::take(body);
                     *program = *body;
                     return true;
                 }
-                b_reduce(fun) || b_reduce(arg)
+                b_reduce_(fun, arg_set) || b_reduce_(arg, arg_set)
             }
             _ => false,
         }
@@ -301,20 +310,35 @@ fn main() {
                 ArgVal::Borrowed(program) => program.clone(),
             }
         }
+        fn borrow(&self) -> &Program {
+            match self {
+                ArgVal::Owned(program) => program,
+                ArgVal::Borrowed(program) => program,
+            }
+        }
     }
 
-    fn apply<'a>(program: &'a mut Program, name: &str, arg_val: ArgVal<'a>) -> ArgVal<'a> {
+    fn apply<'a>(
+        program: &'a mut Program,
+        name: &str,
+        arg_val: ArgVal<'a>,
+        arg_set: &HashMap<String, u32>,
+    ) -> ArgVal<'a> {
         match program {
             Program::Lambda { arg, body } => {
                 if name != arg {
-                    apply(body, name, arg_val)
+                    if arg_set.get(arg).copied().unwrap_or(0) != 0 && seek(arg_val.borrow(), arg) {
+                        rename(body, &*arg);
+                        arg.push('\'');
+                    }
+                    apply(body, name, arg_val, arg_set)
                 } else {
                     arg_val
                 }
             }
             Program::Application { fun, arg } => {
-                let arg_val = apply(fun, name, arg_val);
-                apply(arg, name, arg_val)
+                let arg_val = apply(fun, name, arg_val, arg_set);
+                apply(arg, name, arg_val, arg_set)
             }
             Program::Variable { name: name1 } => {
                 if name1 == name {
@@ -327,11 +351,35 @@ fn main() {
         }
     }
 
-    fn seek(program: &mut Program, name: &str) -> bool {
+    fn seek(program: &Program, name: &str) -> bool {
         match program {
             Program::Lambda { arg, body } => name != arg && seek(body, name),
             Program::Application { fun, arg } => seek(fun, name) || seek(arg, name),
             Program::Variable { name: name1 } => name1 == name,
+        }
+    }
+
+    fn rename(program: &mut Program, name: &str) {
+        match program {
+            Program::Lambda { arg, body } => {
+                if arg.len() == name.len() + 1 && arg.starts_with(name) && arg.ends_with('\'') {
+                    dbg!();
+                    rename(body, arg);
+                    arg.push('\'');
+                }
+                if name != arg {
+                    rename(body, name);
+                }
+            }
+            Program::Application { fun, arg } => {
+                rename(fun, name);
+                rename(arg, name);
+            }
+            Program::Variable { name: name1 } => {
+                if name1 == name {
+                    name1.push('\'');
+                }
+            }
         }
     }
 
