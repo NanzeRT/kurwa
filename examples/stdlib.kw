@@ -150,4 +150,31 @@ print 15 eq_nums add three three li false li true li true none
 # n15 add n12 three
 print 16 n15
 
+
+[[ list bool -> bool ]]
+#1 all recur ; all ; l
+match_list l
+    ; h ; t if h . all t false
+    true
+
+[[ implementation taken straight from                                                ]]
+[[ https://hackage.haskell.org/package/base-4.21.0.0/docs/Data-List.html#v:transpose ]]
+[[ T -> list list T -> list list T ]]
+#1 trans recur ; trans ; xss
+match_list xss
+    ; xs ; xss
+    match_list xs
+        ; x ; xs
+            # hdstls unzip map_filter_list
+                ; l match_list l
+                    ; h ; t some pair h t
+                    none
+                xss
+            depair hdstls ; hds ; tls
+            #4 combine ; y ; h ; ys ; t
+                li li y h . trans li ys t
+            combine x hds xs tls
+        . trans xss
+    none
+
 end
